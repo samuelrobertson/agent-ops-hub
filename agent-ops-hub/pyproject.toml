@@ -1,0 +1,25 @@
+[project]
+name = "agent-ops-hub"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "langchain>=0.3",
+  "langgraph>=0.2",
+  "faiss-cpu",
+  "tiktoken",
+  "httpx",
+  "python-dotenv",
+  "pydantic>=2",
+  "rich",
+  "pytest"
+]
+
+[project.scripts]
+ingest = "app.cli.ingest:main"
+ask = "app.cli.ask:main"
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
