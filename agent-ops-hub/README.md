@@ -17,3 +17,8 @@ POST /ask
 curl -X POST http://localhost:8000/ingest -H "Content-Type: application/json" -d '{"url":"https://example.com"}'
 curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"question":"What is the main point?"}'
 curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{"question":"schedule a 30-minute focus block tomorrow"}'
+
+## Dependency Management
+
+This project uses **pyproject.toml** for modern packaging and dependency management (PEP 621).
+A **requirements.txt** file is also included for compatibility with environments like Replit and Heroku that don’t support installing directly from pyproject.toml.
