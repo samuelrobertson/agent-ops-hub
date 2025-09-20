@@ -1,0 +1,3 @@
+[console_scripts]
+ask = app.cli.ask:main
+ingest = app.cli.ingest:main

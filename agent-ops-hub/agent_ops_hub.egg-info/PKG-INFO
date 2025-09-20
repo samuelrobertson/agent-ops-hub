@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: agent-ops-hub
+Version: 0.1.0
+Requires-Python: >=3.11
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: langchain>=0.3
+Requires-Dist: langgraph>=0.2
+Requires-Dist: faiss-cpu
+Requires-Dist: tiktoken
+Requires-Dist: httpx
+Requires-Dist: python-dotenv
+Requires-Dist: pydantic>=2
+Requires-Dist: rich
+Requires-Dist: pytest

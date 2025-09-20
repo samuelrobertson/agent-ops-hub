@@ -1,24 +1,20 @@
 [project]
 name = "agent-ops-hub"
 version = "0.1.0"
-requires-python = ">=3.11"
-dependencies = [
-  "fastapi",
-  "uvicorn[standard]",
-  "langchain>=0.3",
-  "langgraph>=0.2",
-  "faiss-cpu",
-  "tiktoken",
-  "httpx",
-  "python-dotenv",
-  "pydantic>=2",
-  "rich",
-  "pytest"
+description = "End-to-end AI orchestration platform demo"
+authors = [
+    { name = "Sam Robertson", email = "samuelrobertson@gmail.com" }
 ]
 
-[project.scripts]
-ingest = "app.cli.ingest:main"
-ask = "app.cli.ask:main"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "langchain>=0.3",
+    "langgraph>=0.2",
+    "faiss-cpu",
+    "semantic-kernel",
+    "python-multipart"
+]
 
 [build-system]
 requires = ["setuptools", "wheel"]
