@@ -106,3 +106,17 @@ async def health():
         "index_path": INDEX_PATH,
         "docstore_path": DOCSTORE_PATH,
     }
+
+@app.get("/status")
+async def status():
+    """
+    Alternative health check endpoint (in case /healthz is blocked by infrastructure).
+    """
+    return {
+        "status": "healthy",
+        "ok": True,
+        "vectors": vs.size(),
+        "data_dir": DATA_DIR,
+        "index_path": INDEX_PATH,
+        "docstore_path": DOCSTORE_PATH,
+    }
