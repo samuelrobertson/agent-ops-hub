@@ -2,32 +2,66 @@
 # FastAPI app: exposes /ingest and /ask. Wires VectorStore + LangGraph.
 
 import os
-from typing import Optional
-from fastapi import FastAPI
+import logging
+from typing import Optional, Any
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
 from app.core.vector.store import VectorStore
 from app.core.chains.embedding import fetch_text_from_url, chunk_text, embed_chunks
 from app.core.graph.qa_graph import build_graph
+from app.core.graph.state import State
 from app.core.skills.calendar_skill import get_busy_slots
 
 
-app = FastAPI(title="Agent Ops Hub")
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Storage configuration (can be overridden via Deployment Secrets)
-DATA_DIR = os.getenv("DATA_DIR", "data")
-INDEX_PATH = os.path.join(DATA_DIR, "index.faiss")
-DOCSTORE_PATH = os.path.join(DATA_DIR, "docstore.jsonl")
+# Global variables for app components
+vs: VectorStore | None = None
+graph: Any | None = None
 
-# Ensure the data directory exists (VectorStore also guards this, but cheap to do here)
-os.makedirs(DATA_DIR, exist_ok=True)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events with proper error handling."""
+    global vs, graph
+    
+    # Startup
+    try:
+        logger.info("Starting Agent Ops Hub application...")
+        
+        # Storage configuration (can be overridden via Deployment Secrets)
+        DATA_DIR = os.getenv("DATA_DIR", "data")
+        INDEX_PATH = os.path.join(DATA_DIR, "index.faiss")
+        DOCSTORE_PATH = os.path.join(DATA_DIR, "docstore.jsonl")
+        
+        # Ensure the data directory exists (VectorStore also guards this, but cheap to do here)
+        os.makedirs(DATA_DIR, exist_ok=True)
+        logger.info(f"Data directory initialized: {DATA_DIR}")
+        
+        # Single vector store instance shared by endpoints
+        # NOTE: VectorStore requires (data_dir, index_path, docstore_path)
+        vs = VectorStore(DATA_DIR, INDEX_PATH, DOCSTORE_PATH)
+        logger.info("VectorStore initialized successfully")
+        
+        # Build the LangGraph once at startup (it captures the vector store reference)
+        graph = build_graph(vs)
+        logger.info("LangGraph built and compiled successfully")
+        
+        logger.info("Application startup completed successfully")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize application: {e}")
+        raise HTTPException(status_code=500, detail=f"Application startup failed: {str(e)}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Application shutting down...")
 
-# Single vector store instance shared by endpoints
-# NOTE: VectorStore requires (data_dir, index_path, docstore_path)
-vs = VectorStore(DATA_DIR, INDEX_PATH, DOCSTORE_PATH)
-
-# Build the LangGraph once at startup (it captures the vector store reference)
-graph = build_graph(vs)
+app = FastAPI(title="Agent Ops Hub", lifespan=lifespan)
 
 
 class IngestRequest(BaseModel):
@@ -48,22 +82,25 @@ async def ingest(req: IngestRequest):
     Returns how many chunks were indexed and total corpus size.
     """
     if not req.url:
-        return {"indexed": 0, "docs_total": vs.size()}
+        return {"indexed": 0, "docs_total": vs.size() if vs else 0}
 
     # 1) Fetch raw text from the URL
     text = await fetch_text_from_url(req.url)
 
     # Guard: if a site returns no text (blocked/empty), bail out gracefully
     if not text or not text.strip():
-        return {"indexed": 0, "docs_total": vs.size()}
+        return {"indexed": 0, "docs_total": vs.size() if vs else 0}
 
     # 2) Chunk and embed
     chunks = chunk_text(text)
     if not chunks:
-        return {"indexed": 0, "docs_total": vs.size()}
+        return {"indexed": 0, "docs_total": vs.size() if vs else 0}
     embeddings = await embed_chunks(chunks)
 
     # 3) Upsert vectors + metadata
+    if vs is None:
+        raise HTTPException(status_code=503, detail="VectorStore not initialized")
+    
     meta = {"url": req.url, "title": req.url}
     ids = vs.upsert(chunks, embeddings, meta)
 
@@ -88,10 +125,18 @@ async def ask(req: AskRequest):
             "route": "skill",
         }
 
-    # Run the compiled LangGraph on the QA path
-    result = await graph.ainvoke({"question": q})
-    # result should include 'answer', 'citations', 'route'
-    return result
+    try:
+        if graph is None:
+            raise HTTPException(status_code=503, detail="Graph not initialized")
+        
+        # Run the compiled LangGraph on the QA path
+        state = State(question=q)
+        result = await graph.ainvoke(state)
+        # result should include 'answer', 'citations', 'route'
+        return result
+    except Exception as e:
+        logger.error(f"Error processing question '{q}': {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process question: {str(e)}")
 
 
 @app.get("/healthz")
@@ -99,24 +144,47 @@ async def health():
     """
     Lightweight health check so you (and Replit) can verify the API is up.
     """
-    return {
-        "ok": True,
-        "vectors": vs.size(),
-        "data_dir": DATA_DIR,
-        "index_path": INDEX_PATH,
-        "docstore_path": DOCSTORE_PATH,
-    }
+    try:
+        if vs is None or graph is None:
+            raise HTTPException(status_code=503, detail="Application not fully initialized")
+        
+        DATA_DIR = os.getenv("DATA_DIR", "data")
+        INDEX_PATH = os.path.join(DATA_DIR, "index.faiss")
+        DOCSTORE_PATH = os.path.join(DATA_DIR, "docstore.jsonl")
+        
+        return {
+            "ok": True,
+            "status": "healthy",
+            "vectors": vs.size(),
+            "data_dir": DATA_DIR,
+            "index_path": INDEX_PATH,
+            "docstore_path": DOCSTORE_PATH,
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(status_code=503, detail=f"Health check failed: {str(e)}")
 
 @app.get("/status")
 async def status():
     """
     Alternative health check endpoint (in case /healthz is blocked by infrastructure).
     """
-    return {
-        "status": "healthy",
-        "ok": True,
-        "vectors": vs.size(),
-        "data_dir": DATA_DIR,
-        "index_path": INDEX_PATH,
-        "docstore_path": DOCSTORE_PATH,
-    }
+    try:
+        if vs is None or graph is None:
+            raise HTTPException(status_code=503, detail="Application not fully initialized")
+        
+        DATA_DIR = os.getenv("DATA_DIR", "data")
+        INDEX_PATH = os.path.join(DATA_DIR, "index.faiss")
+        DOCSTORE_PATH = os.path.join(DATA_DIR, "docstore.jsonl")
+        
+        return {
+            "status": "healthy",
+            "ok": True,
+            "vectors": vs.size(),
+            "data_dir": DATA_DIR,
+            "index_path": INDEX_PATH,
+            "docstore_path": DOCSTORE_PATH,
+        }
+    except Exception as e:
+        logger.error(f"Status check failed: {e}")
+        raise HTTPException(status_code=503, detail=f"Status check failed: {str(e)}")
