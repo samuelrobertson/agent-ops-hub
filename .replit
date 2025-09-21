@@ -40,4 +40,4 @@ packages = ["bash"]
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["bash", "-c", "cd agent-ops-hub && uvicorn app.api.main:app --host 0.0.0.0 --port 5000"]
+run = ["bash", "-c", "cd agent-ops-hub && python -m uvicorn app.api.main:app --host 0.0.0.0 --port 5000"]
