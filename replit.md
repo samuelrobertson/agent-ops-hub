@@ -8,6 +8,13 @@ Agent Ops Hub is a minimal AI-powered information retrieval and question-answeri
 
 Preferred communication style: Simple, everyday language.
 
+## Deployment Information
+
+- **Production URL**: https://agent-ops-hub-SamRobertson6.replit.app
+- **Development Port**: 5000 (auto-maps to port 80 in production)
+- **Deployment Status**: Successfully deployed with all fixes applied
+- **Last Updated**: September 22, 2025 - All deployment issues resolved
+
 ## System Architecture
 
 ### Backend Architecture
