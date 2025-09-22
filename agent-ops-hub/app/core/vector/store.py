@@ -52,13 +52,13 @@ class VectorStore:
             return []
         q = np.array([query_emb]).astype("float32")
         faiss.normalize_L2(q)
-        D, I = self.index.search(q, k)
+        distances, indices = self.index.search(q, k)
         results = []
-        for rank, idx in enumerate(I[0]):
+        for rank, idx in enumerate(indices[0]):
             if idx < 0 or idx >= len(self.docmeta):
                 continue
             m = self.docmeta[idx]
-            results.append({"id": m["id"], "title": m.get("title") or m.get("filename") or m["id"], "url": m.get("url"), "text": m["text"], "score": float(D[0][rank])})
+            results.append({"id": m["id"], "title": m.get("title") or m.get("filename") or m["id"], "url": m.get("url"), "text": m["text"], "score": float(distances[0][rank])})
         return results
 
     def size(self):
