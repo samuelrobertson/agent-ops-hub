@@ -76,3 +76,7 @@ Preferred communication style: Simple, everyday language.
 - **Rich**: Enhanced terminal output for CLI tools
 - **Pytest**: Testing framework for unit and integration tests
 - **Python-dotenv**: Environment variable management from .env files
+
+## Notes
+
+- **GitHub Integration**: User dismissed the Replit GitHub integration. For future git operations, will need GitHub username and personal access token stored as secrets to push code changes to the repository at https://github.com/samuelrobertson/agent-ops-hub.git
