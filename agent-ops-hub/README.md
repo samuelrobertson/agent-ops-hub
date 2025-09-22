@@ -22,3 +22,4 @@ curl -X POST http://localhost:8000/ask -H "Content-Type: application/json" -d '{
 
 This project uses **pyproject.toml** for modern packaging and dependency management (PEP 621).
 A **requirements.txt** file is also included for compatibility with environments like Replit and Heroku that don’t support installing directly from pyproject.toml.
+# Production Status: All endpoints verified and working correctly
