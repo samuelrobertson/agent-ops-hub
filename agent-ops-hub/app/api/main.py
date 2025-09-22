@@ -101,8 +101,10 @@ async def ingest(req: IngestRequest):
     if vs is None:
         raise HTTPException(status_code=503, detail="VectorStore not initialized")
     
+    # Convert plain string chunks to the format expected by vector store
+    chunk_dicts = [{"text": chunk} for chunk in chunks]
     meta = {"url": req.url, "title": req.url}
-    ids = vs.upsert(chunks, embeddings, meta)
+    ids = vs.upsert(chunk_dicts, embeddings, meta)
 
     return {"indexed": len(ids), "docs_total": vs.size()}
 

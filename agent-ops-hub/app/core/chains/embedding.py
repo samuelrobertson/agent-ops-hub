@@ -73,7 +73,16 @@ async def _embed_batch(texts: List[str]) -> List[List[float]]:
 
     async with httpx.AsyncClient(timeout=120) as client:
         resp = await client.post(url, headers=headers, json={"model": model, "input": texts})
-        resp.raise_for_status()
+        
+        if not resp.is_success:
+            # Log the specific error details
+            try:
+                error_data = resp.json()
+                print(f"OpenAI API Error: {resp.status_code} - {error_data}")
+            except:
+                print(f"OpenAI API Error: {resp.status_code} - {resp.text}")
+            resp.raise_for_status()
+            
         data = resp.json()
         return [item["embedding"] for item in data["data"]]
 
@@ -82,12 +91,26 @@ async def embed_chunks(texts: List[str]) -> np.ndarray:
     """
     Embed a list of chunk strings → NumPy array [n_chunks, dim].
     Returns an empty (0, dim) array if there are no texts.
+    Processes in batches to avoid OpenAI token limits.
     """
     if not texts:
         return np.zeros((0, 1536), dtype=np.float32)
 
-    vecs = await _embed_batch(texts)
-    arr = np.asarray(vecs, dtype=np.float32)
+    # Process in smaller batches to avoid token limits
+    # Assuming ~4 chars per token, and 1200 char chunks, that's ~300 tokens per chunk
+    # With 300k token limit, we can safely do ~800 chunks per batch
+    # Let's be conservative and use 100 chunks per batch
+    batch_size = 100
+    all_embeddings = []
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        print(f"Processing embedding batch {i//batch_size + 1}/{(len(texts) + batch_size - 1)//batch_size} with {len(batch)} chunks")
+        
+        batch_vecs = await _embed_batch(batch)
+        all_embeddings.extend(batch_vecs)
+    
+    arr = np.asarray(all_embeddings, dtype=np.float32)
     return arr
 
 
