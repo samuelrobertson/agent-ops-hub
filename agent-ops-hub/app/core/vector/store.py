@@ -26,7 +26,7 @@ class VectorStore:
             self.index = None
 
     def _vector_dim_from_index(self):
-        return self.index.d
+        return self.index.d if self.index is not None else None
 
     def upsert(self, chunks, embeddings, parent_meta):
         arr = np.array(embeddings).astype("float32")
