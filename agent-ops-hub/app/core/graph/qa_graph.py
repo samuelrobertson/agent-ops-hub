@@ -5,22 +5,22 @@ from app.core.models.llm import chat_answer
 
 def build_graph(vs):
     async def plan(state: State):
-        q = state["question"]
+        q = state.question
         if q.lower().startswith("schedule"):
             return {"route":"skill"}
         return {"route":"qa"}
 
     async def retrieve_node(state: State):
-        items = await retrieve(vs, state["question"], k=5)
+        items = await retrieve(vs, state.question, k=5)
         return {"retrieved": items}
 
     async def answer_node(state: State):
         ctx = ""
         cites = []
-        for it in (state.get("retrieved") or [])[:4]:
+        for it in (state.retrieved or [])[:4]:
             ctx += it["text"] + "\n"
             cites.append({"id": it["id"], "title": it["title"], "url": it.get("url"), "score": it["score"]})
-        prompt = "Q: " + state["question"] + "\nContext:\n" + ctx
+        prompt = "Q: " + state.question + "\nContext:\n" + ctx
         ans = await chat_answer(prompt)
         return {"answer": ans, "citations": cites}
 
@@ -29,7 +29,7 @@ def build_graph(vs):
     g.add_node("retrieve", retrieve_node)
     g.add_node("answer", answer_node)
     g.set_entry_point("plan")
-    g.add_conditional_edges("plan", lambda s: s.get("route") or "qa", {"qa":"retrieve","skill":END})
+    g.add_conditional_edges("plan", lambda s: s.route or "qa", {"qa":"retrieve","skill":END})
     g.add_edge("retrieve","answer")
     g.add_edge("answer", END)
     return g.compile()
